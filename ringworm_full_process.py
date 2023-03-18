@@ -43,6 +43,20 @@ scrape_images("ringworm", "C:/Users/Danie/OneDrive/Desktop/ringworm_classifier_V
 
 import shutil
 
+import cv2
+import numpy as np
+
+def load_images(folder):
+    images = []
+    labels = []
+    for filename in os.listdir(folder):
+        img = cv2.imread(os.path.join(folder, filename))
+        if img is not None:
+            img_resized = cv2.resize(img, (224, 224))
+            images.append(img_resized)
+            labels.append(1 if "Ringworm" in folder else 0)
+    return images, labels
+
 def load_and_classify_images(model, folder):
     images = []
     filepaths = []
