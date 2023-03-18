@@ -1,25 +1,42 @@
-import shutil
+import os
+import cv2
+import numpy as np
+import tensorflow as tf
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import confusion_matrix, accuracy_score
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.applications import MobileNetV2
+from tensorflow.keras.layers import Dense, GlobalAveragePooling2D
+from tensorflow.keras.models import Model
+from tensorflow.keras.optimizers import Adam
 
-def load_and_classify_images(model, folder):
+def load_images(folder):
     images = []
-    filepaths = []
+    labels = []
     for filename in os.listdir(folder):
         img = cv2.imread(os.path.join(folder, filename))
         if img is not None:
-            img_resized = cv2.resize(img, (224, 224))
-            images.append(img_resized)
-            filepaths.append(os.path.join(folder, filename))
+            img = cv2.resize(img, (224, 224))
+            images.append(img)
+            if "NotRingworm" in folder:
+                labels.append(0)
+            else:
+                labels.append(1)
+    return images, labels
 
-    images = np.array(images).astype("float32") / 255
-    predictions = np.argmax(model.predict(images), axis=-1)
+def create_model():
+    base_model = MobileNetV2(weights="imagenet", include_top=False, input_shape=(224, 224, 3))
+    x = base_model.output
+    x = GlobalAveragePooling2D()(x)
+    x = Dense(1024, activation="relu")(x)
+    predictions = Dense(2, activation="softmax")(x)
+    model = Model(inputs=base_model.input, outputs=predictions)
 
-    return filepaths, predictions
+    for layer in base_model.layers:
+        layer.trainable = False
 
-def move_classified_images(filepaths, predictions, target_folder):
-    for filepath, prediction in zip(filepaths, predictions):
-        if prediction == 1:
-            dest = os.path.join(target_folder, os.path.basename(filepath))
-            shutil.move(filepath, dest.replace("\\", "/"))
+    model.compile(optimizer=Adam(lr=0.0001), loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+    return model
 
 if __name__ == "__main__":
     not_ringworm_folder = r"C:/Users/Danie/OneDrive/Desktop/ringworm_classifier_V2/data/NotRingworm"
@@ -47,14 +64,3 @@ if __name__ == "__main__":
 
     print("Confusion Matrix:\n", cm)
     print("Accuracy:", accuracy)
-
-    model.fit(train_generator, epochs=5)
-
-    # Load and classify untested images
-    untested_folder = r"C:\Users\Danie\OneDrive\Desktop\ringworm_classifier_V2\untested"
-    tested_folder = r"C:\Users\Danie\OneDrive\Desktop\ringworm_classifier_V2\tested"
-
-    filepaths, predictions = load_and_classify_images(model, untested_folder)
-
-    # Move classified ringworm images to the tested folder
-    move_classified_images(filepaths, predictions, tested_folder)
