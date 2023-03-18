@@ -1,4 +1,28 @@
-import os
+import shutil
+
+def load_and_classify_images(model, folder):
+    images = []
+    filepaths = []
+    for filename in os.listdir(folder):
+        img = cv2.imread(os.path.join(folder, filename))
+        if img is not None:
+            img_resized = cv2.resize(img, (224, 224))
+            images.append(img_resized)
+            filepaths.append(os.path.join(folder, filename))
+
+    images = np.array(images).astype("float32") / 255
+    predictions = np.argmax(model.predict(images), axis=-1)
+
+    return filepaths, predictions
+
+def move_classified_images(filepaths, predictions, target_folder):
+    for filepath, prediction in zip(filepaths, predictions):
+        if prediction == 1:
+            dest = os.path.join(target_folder, os.path.basename(filepath))
+            shutil.move(filepath, dest.replace("\\", "/"))
+
+if __name__ == "__main__":
+    import os
 import cv2
 import numpy as np
 import tensorflow as tf
@@ -64,3 +88,13 @@ if __name__ == "__main__":
 
     print("Confusion Matrix:\n", cm)
     print("Accuracy:", accuracy)
+    model.fit(train_generator, epochs=5)
+
+    # Load and classify untested images
+    untested_folder = r"C:\Users\Danie\OneDrive\Desktop\ringworm_classifier_V2\untested"
+    tested_folder = r"C:\Users\Danie\OneDrive\Desktop\ringworm_classifier_V2\tested"
+
+    filepaths, predictions = load_and_classify_images(model, untested_folder)
+
+    # Move classified ringworm images to the tested folder
+    move_classified_images(filepaths, predictions, tested_folder)
